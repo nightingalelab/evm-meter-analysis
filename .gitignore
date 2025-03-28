@@ -176,5 +176,6 @@ cython_debug/
 # Project files
 .DS_Store
 secrets.json
-data/**/*.csv
-data/**/*.parquet
+data/block_data/*
+data/processed_data/*
+.venv/*
