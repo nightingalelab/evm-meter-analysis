@@ -8,14 +8,13 @@ from typing import List, Dict, Union
 class SimTx:
     resource_dict: Dict[str, float]
     tx_fee: float = 0.0
-    arrival_time: int = 0
+    arrival_ts: int = 0
     label: str = None
 
-
-def __lt__(self, other):
-    # Order of transactions if based on descending transaction fees
-    # i.e., highest paying transaction if first
-    return self.tx_fee > other.tx_fee
+    def __lt__(self, other):
+        # Order of transactions if based on descending transaction fees
+        # i.e., highest paying transaction if first
+        return self.tx_fee > other.tx_fee
 
 
 class TransferSimMempool:
@@ -80,9 +79,7 @@ class HistoricalSimMempool:
             arr_start = self.refresh_times * self.block_time
             arr_end = (self.refresh_times + 1) * self.block_time
             new_txs = [
-                tx
-                for tx in self.historical_txs
-                if arr_start <= tx.arrival_time < arr_end
+                tx for tx in self.historical_txs if arr_start <= tx.arrival_ts < arr_end
             ]
             self.mempool_txs += new_txs
             self.mempool_txs.sort()
@@ -91,11 +88,10 @@ class HistoricalSimMempool:
             new_txs = random.choices(self.historical_txs, k=tx_sample_size)
             self.mempool_txs += new_txs
             self.mempool_txs.sort()
-
         self.refresh_times + 1
 
     def txs_count(self):
         if self.demand_type == "infinite":
             return np.inf
         else:  # "historical" or "parametric"
-            return len(len(self.mempool_txs))
+            return len(self.mempool_txs)

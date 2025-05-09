@@ -7,7 +7,7 @@ from collections.abc import Callable
 
 sys.path.append(str(Path(__file__).parent.parent))
 from sim.mempool import SimTx, TransferSimMempool, HistoricalSimMempool
-from meter import one_dim_scheme
+from sim.meter import one_dim_scheme
 
 
 def build_block(
@@ -20,6 +20,8 @@ def build_block(
     utilization = 0.0
     while True:
         next_tx = mempool.get_next_tx()
+        if next_tx is None:  # if mempool is empty, we close the block as is
+            break
         candidate_txs = block_txs + [next_tx]
         candidate_utilization = meter_func(candidate_txs, meter_limit)
         if candidate_utilization <= 1:
@@ -41,7 +43,7 @@ def build_blocks_from_historic_scenario(
     block_time: int = None,
 ) -> pd.DataFrame:
     sim_df = pd.DataFrame()
-    for iter in tqdm(range(n_iter), desc="Running Monte-Carlo iterations."):
+    for iter in tqdm(range(n_iter)):
         mempool = HistoricalSimMempool(tx_set, demand_type, demand_lambda, block_time)
         for i in range(n_blocks):
             block_txs, utilization = build_block(mempool, meter_func, meter_limit)
@@ -54,7 +56,7 @@ def build_blocks_from_historic_scenario(
                 "throughput": len(block_txs),
                 "mempool_size": mempool.txs_count(),
             }
-            sim_df = pd.concat([sim_df, pd.DataFrame(block_dict)], ignore_index=True)
+            sim_df = pd.concat([sim_df, pd.DataFrame([block_dict])], ignore_index=True)
     return sim_df
 
 
