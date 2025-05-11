@@ -47,16 +47,16 @@ def parse_configuration():
     parser.add_argument(
         "--n_blocks",
         type=int,
-        default=6000,
-        help="Number of blocks built in the simulation. Defaults to 6000.",
+        default=2000,
+        help="Number of blocks built in the simulation. Defaults to 2000.",
     )
     parser.add_argument(
         "--n_iter",
         type=int,
-        default=100,
+        default=50,
         help=(
             "Number of Monte-Carlo iterations for the historical transactions"
-            "simulation. Defaults to 100."
+            "simulation. Defaults to 50."
         ),
     )
     parser.add_argument(
@@ -125,7 +125,7 @@ def main():
         meter.state_vs_compute_vs_others,
         meter.state_vs_compute_vs_access_vs_others,
     ]
-    meter_limit_list = [36_000_000.0, 36_000_000.0 * 0.8, 36_000_000.0 * 0.5]
+    meter_limit_list = [36_000_000.0, 36_000_000.0 * 0.5]
     # Run ETH transfers simulation
     logging.info("Running simulation for the ETH transfers scenario.")
     eth_transfer_sim_df = pd.DataFrame()
