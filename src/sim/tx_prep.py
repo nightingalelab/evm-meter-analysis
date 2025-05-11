@@ -5,6 +5,7 @@ import duckdb
 import logging
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 from pathlib import Path
 from typing import List, Dict
 from datetime import timedelta
@@ -223,7 +224,7 @@ def process_and_save_sim_txs(
     logging.info("Building list of simTxs.")
     tx_hash_list = gas_by_resource_df["tx_hash"].unique().tolist()
     sim_tx_list = []
-    for tx_hash in tx_hash_list:
+    for tx_hash in tqdm(tx_hash_list):
         resource_dict = (
             gas_by_resource_df[gas_by_resource_df["tx_hash"] == tx_hash]
             .drop(columns=["tx_hash", "block_height", "State (exc. Refunds)"])
