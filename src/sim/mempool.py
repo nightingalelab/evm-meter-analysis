@@ -28,6 +28,9 @@ class TransferSimMempool:
     def get_next_tx(self) -> SimTx:
         return SimTx(self._resource_dict)
 
+    def get_next_tx_batch(self, batch_size: int) -> List[SimTx]:
+        return [SimTx(self._resource_dict)] * batch_size
+
     # Need to use the same fingerprint as HistoricalSimMempool
     def refresh(self):
         pass
@@ -69,8 +72,24 @@ class HistoricalSimMempool:
             if len(self.mempool_txs) == 0:
                 return None
             else:
-                tx = self.mempool_txs.pop()
+                tx = self.mempool_txs.pop(0)
                 return tx
+
+    def get_next_tx_batch(self, batch_size: int) -> List[SimTx]:
+        if self.demand_type == "infinite":
+            tx_batch = [random.choice(self.historical_txs) for i in range(batch_size)]
+            return tx_batch
+        else:  # "historical" or "parametric"
+            if len(self.mempool_txs) == 0:
+                return []
+            elif len(self.mempool_txs) < batch_size:
+                tx_batch = self.mempool_txs
+                self.mempool_txs = []
+                return tx_batch
+            else:
+                tx_batch = [self.mempool_txs.pop(0) for i in range(batch_size)]
+                return tx_batch
+        return
 
     def refresh(self):
         if self.demand_type == "infinite":

@@ -27,7 +27,7 @@ def parse_configuration():
     """
     file_dir = os.path.dirname(os.path.abspath(__file__))
     parser = argparse.ArgumentParser(
-        description="Runs a set of simulations to test some metering schemes under different demand"
+        description="Runs a set of simulations to test metering schemes under different demand scenarios"
     )
     parser.add_argument(
         "--data_dir",
@@ -41,14 +41,14 @@ def parse_configuration():
         default=False,
         help=(
             "Whether to reprocess the transaction set for the historical transaction "
-            "scenarios. Defaults to False"
+            "scenarios (default: False)"
         ),
     )
     parser.add_argument(
         "--n_blocks",
         type=int,
         default=2000,
-        help="Number of blocks built in the simulation. Defaults to 2000.",
+        help="Number of blocks built in the simulation (default: 2000)",
     )
     parser.add_argument(
         "--n_iter",
@@ -56,7 +56,7 @@ def parse_configuration():
         default=50,
         help=(
             "Number of Monte-Carlo iterations for the historical transactions"
-            "simulation. Defaults to 50."
+            "simulation (default: 50)"
         ),
     )
     parser.add_argument(
@@ -81,6 +81,15 @@ def parse_configuration():
         default=8,
         help="Number of threads to use for processing transactions (default: 8)",
     )
+    parser.add_argument(
+        "--tx_batch_size",
+        type=int,
+        default=20,
+        help=(
+            "Number of transactions that we tentatively add to the block at each iteration."
+            "Used to speed up run time. (default: 10)"
+        ),
+    )
     args = parser.parse_args()
     config = {
         "data_dir": args.data_dir,
@@ -88,6 +97,7 @@ def parse_configuration():
         "n_blocks": args.n_blocks,
         "n_iter": args.n_iter,
         "thread_pool_size": args.thread_pool_size,
+        "tx_batch_size": args.tx_batch_size,
     }
     # Load secrets form file, if it exists
     if os.path.isfile(args.secrets_path):
@@ -122,7 +132,7 @@ def main():
     op_files_dir = os.path.join(data_dir, "aggregated_opcodes_v3", "*", "file.parquet")
     sim_dir = os.path.join(data_dir, "sim")
     sim_txs_dir = os.path.join(sim_dir, "sim_txs_22000000_22006000.pickle")
-    # Set metering schemes
+    # Set metering schemes and other variables
     meter_fn_list = [
         meter.one_dim_scheme,
         meter.compute_vs_others,
@@ -133,11 +143,14 @@ def main():
         meter.state_vs_compute_vs_access_vs_others,
     ]
     meter_limit_list = [36_000_000.0, 36_000_000.0 * 0.5]
+    tx_batch_size = config["tx_batch_size"]
     # Run ETH transfers simulation
     logging.info("Running simulation for the ETH transfers scenario.")
     eth_transfer_sim_df = pd.DataFrame()
     for meter_func, meter_limit in itertools.product(meter_fn_list, meter_limit_list):
-        iter_sim_df = build_block_from_eth_transfer_scenario(meter_func, meter_limit)
+        iter_sim_df = build_block_from_eth_transfer_scenario(
+            meter_func, meter_limit, tx_batch_size
+        )
         iter_sim_df["meter_scheme"] = meter_func.__name__
         iter_sim_df["limit"] = meter_limit
         eth_transfer_sim_df = pd.concat([eth_transfer_sim_df, iter_sim_df])
@@ -181,6 +194,7 @@ def main():
                 demand_lambda,
                 block_time,
                 config["thread_pool_size"],
+                tx_batch_size,
             )
             iter_sim_df["demand_type"] = demand_type
             iter_sim_df["demand_lambda"] = demand_lambda

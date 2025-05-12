@@ -15,20 +15,32 @@ def build_block(
     mempool: Union[TransferSimMempool, HistoricalSimMempool],
     meter_func: Callable[[List[SimTx], float], float],
     meter_limit: float,
+    tx_batch_size: int,
 ) -> Tuple[List[SimTx], float]:
     mempool.refresh()
     block_txs = []
     utilization = 0.0
     while True:
-        next_tx = mempool.get_next_tx()
-        if next_tx is None:  # if mempool is empty, we close the block as is
+        next_tx_batch = mempool.get_next_tx_batch(tx_batch_size)
+        # if mempool is empty, we close the block as is
+        if len(next_tx_batch) == 0:
             break
-        candidate_txs = block_txs + [next_tx]
+        candidate_txs = block_txs + next_tx_batch
         candidate_utilization = meter_func(candidate_txs, meter_limit)
+        # if batch does not fill the block, we add it and continue
         if candidate_utilization <= 1:
             block_txs = candidate_txs
             utilization = candidate_utilization
+        # if the batch fills the block,
+        # we remove candidate txs until it is about to be full
         else:
+            for i in range(tx_batch_size - 1, 0, -1):
+                candidate_txs = block_txs + next_tx_batch[:i]
+                candidate_utilization = meter_func(candidate_txs, meter_limit)
+                if candidate_utilization <= 1:
+                    block_txs = candidate_txs
+                    utilization = candidate_utilization
+                    break
             break
     return block_txs, utilization
 
@@ -43,6 +55,7 @@ def build_blocks_from_historic_scenario(
     demand_lambda: float = None,
     block_time: int = None,
     thread_pool_size: int = 8,
+    tx_batch_size: int = 20,
 ) -> pd.DataFrame:
     sim_df = pd.DataFrame()
     for iter in tqdm(range(n_iter)):
@@ -52,7 +65,13 @@ def build_blocks_from_historic_scenario(
         ) as executor:
             futures = [
                 executor.submit(
-                    _build_block_dict, iter, block, mempool, meter_func, meter_limit
+                    _build_block_dict,
+                    iter,
+                    block,
+                    mempool,
+                    meter_func,
+                    meter_limit,
+                    tx_batch_size,
                 )
                 for block in range(n_blocks)
             ]
@@ -70,8 +89,11 @@ def _build_block_dict(
     mempool: HistoricalSimMempool,
     meter_func: Callable[[List[SimTx], float], float],
     meter_limit: float,
+    tx_batch_size: int,
 ):
-    block_txs, utilization = build_block(mempool, meter_func, meter_limit)
+    block_txs, utilization = build_block(
+        mempool, meter_func, meter_limit, tx_batch_size
+    )
     block_dict = {
         "iter": iter,
         "block": block,
@@ -85,10 +107,14 @@ def _build_block_dict(
 
 
 def build_block_from_eth_transfer_scenario(
-    meter_func: Callable[[List[SimTx], float], float], meter_limit: float
+    meter_func: Callable[[List[SimTx], float], float],
+    meter_limit: float,
+    tx_batch_size: int = 20,
 ):
     mempool = TransferSimMempool()
-    block_txs, utilization = build_block(mempool, meter_func, meter_limit)
+    block_txs, utilization = build_block(
+        mempool, meter_func, meter_limit, tx_batch_size
+    )
     block_dict = {
         "utilization": utilization,
         "gas_used": utilization * meter_limit,
