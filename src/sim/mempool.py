@@ -82,9 +82,9 @@ class HistoricalSimMempool:
                 self.mempool_txs = []
                 return tx_batch
             else:
-                tx_batch = [self.mempool_txs.pop(0) for i in range(batch_size)]
+                tx_batch = self.mempool_txs[:batch_size]
+                self.mempool_txs = self.mempool_txs[batch_size:]
                 return tx_batch
-        return
 
     def refresh(self):
         if self.demand_type == "infinite":
