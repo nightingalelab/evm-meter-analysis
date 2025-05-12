@@ -75,12 +75,19 @@ def parse_configuration():
         type=str,
         help="Xatu Clickhouse password (can be provided in secrets.json)",
     )
+    parser.add_argument(
+        "--thread_pool_size",
+        type=int,
+        default=8,
+        help="Number of threads to use for processing transactions (default: 8)",
+    )
     args = parser.parse_args()
     config = {
         "data_dir": args.data_dir,
         "reprocess": args.reprocess,
         "n_blocks": args.n_blocks,
         "n_iter": args.n_iter,
+        "thread_pool_size": args.thread_pool_size,
     }
     # Load secrets form file, if it exists
     if os.path.isfile(args.secrets_path):
@@ -173,6 +180,7 @@ def main():
                 meter_limit,
                 demand_lambda,
                 block_time,
+                config["thread_pool_size"],
             )
             iter_sim_df["demand_type"] = demand_type
             iter_sim_df["demand_lambda"] = demand_lambda

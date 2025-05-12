@@ -1,5 +1,6 @@
 import sys
 import pandas as pd
+import concurrent.futures
 from tqdm import tqdm
 from pathlib import Path
 from typing import List, Union, Tuple
@@ -41,23 +42,46 @@ def build_blocks_from_historic_scenario(
     meter_limit: float,
     demand_lambda: float = None,
     block_time: int = None,
+    thread_pool_size: int = 8,
 ) -> pd.DataFrame:
     sim_df = pd.DataFrame()
     for iter in tqdm(range(n_iter)):
         mempool = HistoricalSimMempool(tx_set, demand_type, demand_lambda, block_time)
-        for i in range(n_blocks):
-            block_txs, utilization = build_block(mempool, meter_func, meter_limit)
-            block_dict = {
-                "iter": iter,
-                "block": i,
-                "utilization": utilization,
-                "gas_used": utilization * meter_limit,
-                "one_dim_utilization": one_dim_scheme(block_txs, meter_limit),
-                "throughput": len(block_txs),
-                "mempool_size": mempool.txs_count(),
-            }
-            sim_df = pd.concat([sim_df, pd.DataFrame([block_dict])], ignore_index=True)
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=thread_pool_size
+        ) as executor:
+            futures = [
+                executor.submit(
+                    _build_block_dict, iter, block, mempool, meter_func, meter_limit
+                )
+                for block in range(n_blocks)
+            ]
+            block_dict_list = []
+            for future in concurrent.futures.as_completed(futures):
+                block_dict_list.append(future.result())
+        block_df = pd.DataFrame(block_dict_list)
+        sim_df = pd.concat([sim_df, block_df], ignore_index=True)
     return sim_df
+
+
+def _build_block_dict(
+    iter: int,
+    block: int,
+    mempool: HistoricalSimMempool,
+    meter_func: Callable[[List[SimTx], float], float],
+    meter_limit: float,
+):
+    block_txs, utilization = build_block(mempool, meter_func, meter_limit)
+    block_dict = {
+        "iter": iter,
+        "block": block,
+        "utilization": utilization,
+        "gas_used": utilization * meter_limit,
+        "one_dim_utilization": one_dim_scheme(block_txs, meter_limit),
+        "throughput": len(block_txs),
+        "mempool_size": mempool.txs_count(),
+    }
+    return block_dict
 
 
 def build_block_from_eth_transfer_scenario(
