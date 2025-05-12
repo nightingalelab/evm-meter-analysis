@@ -11,11 +11,6 @@ class SimTx:
     arrival_ts: int = 0
     label: str = None
 
-    def __lt__(self, other):
-        # Order of transactions if based on descending transaction fees
-        # i.e., highest paying transaction if first
-        return self.tx_fee > other.tx_fee
-
 
 class TransferSimMempool:
     _resource_dict = {
@@ -101,12 +96,15 @@ class HistoricalSimMempool:
                 tx for tx in self.historical_txs if arr_start <= tx.arrival_ts < arr_end
             ]
             self.mempool_txs += new_txs
-            self.mempool_txs.sort()
+            # self.mempool_txs.sort(key=lambda tx: tx.tx_fee, reverse=True)
+            self.mempool_txs = sorted(
+                self.mempool_txs, key=lambda tx: tx.tx_fee, reverse=True
+            )
         else:  # "parametric"
             tx_sample_size = np.random.poisson(self.demand_lambda)
             new_txs = random.choices(self.historical_txs, k=tx_sample_size)
             self.mempool_txs += new_txs
-            self.mempool_txs.sort()
+            self.mempool_txs.sort(key=lambda tx: tx.tx_fee, reverse=True)
         self.refresh_times + 1
 
     def txs_count(self):
