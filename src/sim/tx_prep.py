@@ -236,9 +236,11 @@ def process_and_save_sim_txs(
         arrival_ts = tx_info["arrival_ts"]
         sim_tx = SimTx(resource_dict, tx_fee, arrival_ts, tx_hash)
         sim_tx_list.append(sim_tx)
-    # Save sim txs as pickle
+    # Sort by arrival time
+    sorted_sim_tx_list = sorted(sim_tx_list, key=lambda tx: tx.arrival_ts)
+    # Save sorted_sim_tx_list as pickle
     with open(sim_txs_dir, "wb") as f:
-        pickle.dump(sim_tx_list, f)
+        pickle.dump(sorted_sim_tx_list, f)
     logging.info("Sucessfully pickled list of simTxs.")
 
 

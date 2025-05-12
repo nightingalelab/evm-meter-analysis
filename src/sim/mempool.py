@@ -44,6 +44,7 @@ class HistoricalSimMempool:
     ):
         self.mempool_txs: List[SimTx] = []
         self.historical_txs = historical_txs
+        self.historical_txs_by_slot: List[List[SimTx]] = []
         self.demand_type = demand_type
         self.demand_lambda = demand_lambda
         self.block_time = block_time
@@ -58,6 +59,8 @@ class HistoricalSimMempool:
             raise ValueError(
                 "`demand_type` can only take the values `infinite`, `historical` or `parametric` "
             )
+        if demand_type == "historical":
+            self._group_historical_txs_by_slot()
 
     def get_next_tx(self) -> Union[SimTx, None]:
         if self.demand_type == "infinite":
@@ -90,11 +93,8 @@ class HistoricalSimMempool:
         if self.demand_type == "infinite":
             pass
         elif self.demand_type == "historical":
-            arr_start = self.refresh_times * self.block_time
-            arr_end = (self.refresh_times + 1) * self.block_time
-            new_txs = [
-                tx for tx in self.historical_txs if arr_start <= tx.arrival_ts < arr_end
-            ]
+            slot = self.refresh_times
+            new_txs = self.historical_txs_by_slot[slot]
             self.mempool_txs = sorted(
                 self.mempool_txs + new_txs, key=lambda tx: tx.tx_fee, reverse=True
             )
@@ -111,3 +111,16 @@ class HistoricalSimMempool:
             return np.inf
         else:  # "historical" or "parametric"
             return len(self.mempool_txs)
+
+    def _group_historical_txs_by_slot(self):
+        slot = 0
+        slot_list = []
+        for tx in self.historical_txs:
+            # Note: assumes historical_txs are sorted by arrival time!!!
+            tx_slot = int(np.floor(tx.arrival_ts / self.block_time))
+            if tx_slot == slot:
+                slot_list.append(tx)
+            else:
+                self.historical_txs_by_slot.append(slot_list)
+                slot += 1
+                slot_list = [tx]
