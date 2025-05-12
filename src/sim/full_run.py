@@ -169,7 +169,7 @@ def main():
         ):
             logging.info(
                 f"Monte-Carlo run for meter_func={meter_func.__name__}"
-                f"& meter_limit={int(meter_limit)}."
+                f" & meter_limit={int(meter_limit)}."
             )
             iter_sim_df = build_blocks_from_historic_scenario(
                 config["n_iter"],
