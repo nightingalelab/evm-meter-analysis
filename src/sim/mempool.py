@@ -111,7 +111,7 @@ class HistoricalSimMempool:
             self.mempool_txs = sorted(
                 self.mempool_txs + new_txs, key=lambda tx: tx.tx_fee, reverse=True
             )
-        self.refresh_times + 1
+        self.refresh_times += 1
 
     def txs_count(self):
         if self.demand_type == "infinite":
