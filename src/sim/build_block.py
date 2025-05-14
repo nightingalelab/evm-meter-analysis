@@ -58,7 +58,11 @@ def build_blocks_from_historic_scenario(
     tx_batch_size: int = 20,
 ) -> pd.DataFrame:
     sim_df = pd.DataFrame()
-    for iter in tqdm(range(n_iter)):
+    if demand_type == "historical":
+        iterations = 1
+    else:
+        iterations = n_iter
+    for iter in tqdm(range(iterations)):
         mempool = HistoricalSimMempool(tx_set, demand_type, demand_lambda, block_time)
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=thread_pool_size
