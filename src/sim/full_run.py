@@ -47,8 +47,8 @@ def parse_configuration():
     parser.add_argument(
         "--n_blocks",
         type=int,
-        default=2000,
-        help="Number of blocks built in the simulation (default: 2000)",
+        default=6000,
+        help="Number of blocks built in the simulation (default: 6000)",
     )
     parser.add_argument(
         "--n_iter",
