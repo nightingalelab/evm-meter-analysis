@@ -26,6 +26,7 @@ def build_block(
         # if mempool is empty, we close the block as is
         if len(next_tx_batch) == 0:
             break
+        # if not, then:
         candidate_txs = block_txs + next_tx_batch
         candidate_utilization = meter_func(candidate_txs, meter_limit)
         # if batch does not fill the block, we add it and continue
@@ -56,7 +57,6 @@ def build_blocks_from_historic_scenario(
     demand_base_kernel: gaussian_kde,
     demand_lambda: float = None,
     block_time: int = None,
-    thread_pool_size: int = 8,
     tx_batch_size: int = 20,
 ) -> pd.DataFrame:
     sim_df = pd.DataFrame()
@@ -72,50 +72,25 @@ def build_blocks_from_historic_scenario(
             demand_lambda,
             block_time,
         )
-        with concurrent.futures.ThreadPoolExecutor(
-            max_workers=thread_pool_size
-        ) as executor:
-            futures = [
-                executor.submit(
-                    _build_block_dict,
-                    iter,
-                    block,
-                    mempool,
-                    meter_func,
-                    meter_limit,
-                    tx_batch_size,
-                )
-                for block in range(n_blocks)
-            ]
-            block_dict_list = []
-            for future in concurrent.futures.as_completed(futures):
-                block_dict_list.append(future.result())
-        block_df = pd.DataFrame(block_dict_list)
-        sim_df = pd.concat([sim_df, block_df], ignore_index=True)
+        for block in range(n_blocks):
+            block_txs, utilization = build_block(
+                mempool, meter_func, meter_limit, tx_batch_size
+            )
+            block_df = pd.DataFrame(
+                [
+                    {
+                        "iter": iter,
+                        "block": block,
+                        "utilization": utilization,
+                        "gas_used": utilization * meter_limit,
+                        "one_dim_utilization": one_dim_scheme(block_txs, meter_limit),
+                        "throughput": len(block_txs),
+                        "mempool_size": mempool.txs_count(),
+                    }
+                ]
+            )
+            sim_df = pd.concat([sim_df, block_df], ignore_index=True)
     return sim_df
-
-
-def _build_block_dict(
-    iter: int,
-    block: int,
-    mempool: HistoricalSimMempool,
-    meter_func: Callable[[List[SimTx], float], float],
-    meter_limit: float,
-    tx_batch_size: int,
-):
-    block_txs, utilization = build_block(
-        mempool, meter_func, meter_limit, tx_batch_size
-    )
-    block_dict = {
-        "iter": iter,
-        "block": block,
-        "utilization": utilization,
-        "gas_used": utilization * meter_limit,
-        "one_dim_utilization": one_dim_scheme(block_txs, meter_limit),
-        "throughput": len(block_txs),
-        "mempool_size": mempool.txs_count(),
-    }
-    return block_dict
 
 
 def build_block_from_eth_transfer_scenario(
