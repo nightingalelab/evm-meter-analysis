@@ -9,6 +9,7 @@ from tqdm import tqdm
 from pathlib import Path
 from typing import List, Dict
 from datetime import timedelta
+from scipy.stats import gaussian_kde
 from sqlalchemy import text, create_engine
 
 
@@ -247,12 +248,13 @@ def process_and_save_sim_txs(
 def get_sim_txs(
     op_files_dir: str, sim_txs_dir: str, secrets_dict: Dict[str, str], reprocess: bool
 ) -> List[SimTx]:
-    # if the file does not exist, process data and save
+    # if the user wants to reprocess, do it
     if reprocess:
         logging.info(
             "Reprocess flag set to True. Reprocessing transactions for the simulation."
         )
         process_and_save_sim_txs(op_files_dir, sim_txs_dir, secrets_dict)
+    # if the file does not exist, process data and save
     elif not os.path.isfile(sim_txs_dir):
         logging.info(
             "Historical transactions for simulation are not yet processed. Processing now."
@@ -263,3 +265,48 @@ def get_sim_txs(
     with open(sim_txs_dir, "rb") as f:
         sim_tx_list = pickle.load(f)
     return sim_tx_list
+
+
+def get_demand_base_kernel(
+    op_files_dir: str, kernel_dir: str, secrets_dict: Dict[str, str], reprocess: bool
+) -> gaussian_kde:
+    # if the user wants to reprocess, do it
+    if reprocess:
+        logging.info(
+            "Reprocess flag set to True. Reprocessing kernel function for the simulation."
+        )
+        process_and_save_kernel_fn(op_files_dir, kernel_dir, secrets_dict)
+    # if the file does not exist, process data and save
+    elif not os.path.isfile(kernel_dir):
+        logging.info(
+            "Kernel function for simulation are not yet processed. Processing now."
+        )
+        process_and_save_kernel_fn(op_files_dir, kernel_dir, secrets_dict)
+    # load class from pickle file
+    logging.info("Loading Kernel function for simulation.")
+    with open(kernel_dir, "rb") as f:
+        kernel_fn = pickle.load(f)
+    return kernel_fn
+
+
+def process_and_save_kernel_fn(
+    op_files_dir: str, kernel_dir: str, secrets_dict: Dict[str, str]
+):
+    # Load opcode and tx data
+    logging.info("Loading aggregated traces.")
+    agg_trace_df = load_agg_trace_df(op_files_dir)
+    start_block = int(agg_trace_df["block_height"].min())
+    end_block = int(agg_trace_df["block_height"].max())
+    logging.info("Downloading transaction info.")
+    tx_info_df = get_tx_info_df(start_block, end_block, secrets_dict)
+    # Compute 12 second slots and counts per slot
+    tx_info_df["12s_slot"] = tx_info_df["arrival_ts"].apply(
+        lambda ts: int(np.floor(ts / 12))
+    )
+    counts_per_slot = tx_info_df.groupby("12s_slot").size().values
+    # Fit kernel density function and save
+    kernel = gaussian_kde(counts_per_slot)
+    # Save sorted_sim_tx_list as pickle
+    with open(kernel_dir, "wb") as f:
+        pickle.dump(kernel, f)
+    logging.info("Sucessfully pickled kernel function.")

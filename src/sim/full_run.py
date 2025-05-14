@@ -13,7 +13,7 @@ from sim.build_block import (
     build_block_from_eth_transfer_scenario,
     build_blocks_from_historic_scenario,
 )
-from sim.tx_prep import get_sim_txs
+from sim.tx_prep import get_sim_txs, get_demand_base_kernel
 import sim.meter as meter
 
 logging.basicConfig(
@@ -132,6 +132,7 @@ def main():
     op_files_dir = os.path.join(data_dir, "aggregated_opcodes_v3", "*", "file.parquet")
     sim_dir = os.path.join(data_dir, "sim")
     sim_txs_dir = os.path.join(sim_dir, "sim_txs_22000000_22006000.pickle")
+    kernel_dir = os.path.join(sim_dir, "demand_base_kernel_22000000_22006000.pickle")
     # Set metering schemes and other variables
     meter_fn_list = [
         meter.one_dim_scheme,
@@ -161,21 +162,24 @@ def main():
     tx_set = get_sim_txs(
         op_files_dir, sim_txs_dir, config["secrets_dict"], config["reprocess"]
     )
+    demand_base_kernel = get_demand_base_kernel(
+        op_files_dir, kernel_dir, config["secrets_dict"], config["reprocess"]
+    )
     demand_dict_list = [
-        {"demand_type": "infinite", "demand_lambda": None},
-        {"demand_type": "historical", "demand_lambda": None},
-        {"demand_type": "parametric", "demand_lambda": 155},
-        {"demand_type": "parametric", "demand_lambda": 155 * 2},
-        {"demand_type": "parametric", "demand_lambda": 155 * 5},
+        {"demand_type": "infinite", "demand_mul": None},
+        {"demand_type": "historical", "demand_mul": None},
+        {"demand_type": "parametric", "demand_mul": 1},
+        {"demand_type": "parametric", "demand_mul": 2},
+        {"demand_type": "parametric", "demand_mul": 5},
     ]
     block_time = 12
     for demand_dict in demand_dict_list:
         historical_sim_df = pd.DataFrame()
         demand_type = demand_dict["demand_type"]
-        demand_lambda = demand_dict["demand_lambda"]
+        demand_mul = demand_dict["demand_mul"]
         logging.info(
             f"Running simulation for the historical transactions scenarios with "
-            f"demand_type={demand_type} & demand_lambda={demand_lambda}."
+            f"demand_type={demand_type} & demand_mul={demand_mul}."
         )
         for meter_func, meter_limit in itertools.product(
             meter_fn_list, meter_limit_list
@@ -191,19 +195,20 @@ def main():
                 demand_type,
                 meter_func,
                 meter_limit,
-                demand_lambda,
+                demand_base_kernel,
+                demand_mul,
                 block_time,
                 config["thread_pool_size"],
                 tx_batch_size,
             )
             iter_sim_df["demand_type"] = demand_type
-            iter_sim_df["demand_lambda"] = demand_lambda
+            iter_sim_df["demand_mul"] = demand_mul
             iter_sim_df["meter_scheme"] = meter_func.__name__
             iter_sim_df["limit"] = meter_limit
             historical_sim_df = pd.concat([historical_sim_df, iter_sim_df])
         out_file = os.path.join(
             sim_dir,
-            f"historical_txs_sim_results_demand={demand_type}_lambda={demand_lambda}.csv",
+            f"historical_txs_sim_results_demand={demand_type}_mul={demand_mul}.csv",
         )
         os.makedirs(sim_dir, exist_ok=True)
         historical_sim_df.to_csv(out_file, index=False)

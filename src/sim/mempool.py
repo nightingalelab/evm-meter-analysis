@@ -2,6 +2,7 @@ import random
 import numpy as np
 from dataclasses import dataclass
 from typing import List, Dict, Union
+from scipy.stats import gaussian_kde
 
 
 @dataclass
@@ -39,19 +40,23 @@ class HistoricalSimMempool:
         self,
         historical_txs: List[SimTx],
         demand_type: str,
-        demand_lambda: float = None,
+        demand_base_kernel: gaussian_kde = None,
+        demand_mul: float = None,
         block_time: int = None,
     ):
         self.mempool_txs: List[SimTx] = []
         self.historical_txs = historical_txs
         self.historical_txs_by_slot: List[List[SimTx]] = []
         self.demand_type = demand_type
-        self.demand_lambda = demand_lambda
+        self.demand_base_kernel = demand_base_kernel
+        self.demand_mul = demand_mul
         self.block_time = block_time
         self.refresh_times = 0
-        if (demand_type == "parametric") & (demand_lambda is None):
+        if (demand_type == "parametric") & (demand_mul is None):
+            raise ValueError("`demand_mul` must be set when using `parametric` demand")
+        if (demand_type == "parametric") & (demand_base_kernel is None):
             raise ValueError(
-                "`demand_lambda` must be set when using `parametric` demand"
+                "`demand_base_kernel` must be set when using `parametric` demand"
             )
         if (demand_type == "historical") & (block_time is None):
             raise ValueError("`block_time` must be set when using `historical` demand")
@@ -99,7 +104,9 @@ class HistoricalSimMempool:
                 self.mempool_txs + new_txs, key=lambda tx: tx.tx_fee, reverse=True
             )
         else:  # "parametric"
-            tx_sample_size = np.random.poisson(self.demand_lambda)
+            tx_sample_size = (
+                int(self.demand_base_kernel.resample(size=1)[0][0]) * self.demand_mul
+            )
             new_txs = random.choices(self.historical_txs, k=tx_sample_size)
             self.mempool_txs = sorted(
                 self.mempool_txs + new_txs, key=lambda tx: tx.tx_fee, reverse=True

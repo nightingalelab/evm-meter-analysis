@@ -3,6 +3,7 @@ import pandas as pd
 import concurrent.futures
 from tqdm import tqdm
 from pathlib import Path
+from scipy.stats import gaussian_kde
 from typing import List, Union, Tuple
 from collections.abc import Callable
 
@@ -52,6 +53,7 @@ def build_blocks_from_historic_scenario(
     demand_type: str,
     meter_func: Callable[[List[SimTx], float], float],
     meter_limit: float,
+    demand_base_kernel: gaussian_kde,
     demand_lambda: float = None,
     block_time: int = None,
     thread_pool_size: int = 8,
@@ -63,7 +65,13 @@ def build_blocks_from_historic_scenario(
     else:
         iterations = n_iter
     for iter in tqdm(range(iterations)):
-        mempool = HistoricalSimMempool(tx_set, demand_type, demand_lambda, block_time)
+        mempool = HistoricalSimMempool(
+            tx_set,
+            demand_type,
+            demand_base_kernel,
+            demand_lambda,
+            block_time,
+        )
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=thread_pool_size
         ) as executor:
