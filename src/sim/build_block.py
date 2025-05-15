@@ -76,14 +76,15 @@ def build_blocks_from_historic_scenario(
             block_txs, utilization = build_block(
                 mempool, meter_func, meter_limit, tx_batch_size
             )
+            one_dim_utilization = one_dim_scheme(block_txs, meter_limit)
             block_df = pd.DataFrame(
                 [
                     {
                         "iter": iter,
                         "block": block,
                         "utilization": utilization,
-                        "gas_used": utilization * meter_limit,
-                        "one_dim_utilization": one_dim_scheme(block_txs, meter_limit),
+                        "gas_used": one_dim_utilization * meter_limit,
+                        "one_dim_utilization": one_dim_utilization,
                         "throughput": len(block_txs),
                         "mempool_size": mempool.txs_count(),
                     }
@@ -102,10 +103,11 @@ def build_block_from_eth_transfer_scenario(
     block_txs, utilization = build_block(
         mempool, meter_func, meter_limit, tx_batch_size
     )
+    one_dim_utilization = one_dim_scheme(block_txs, meter_limit)
     block_dict = {
         "utilization": utilization,
-        "gas_used": utilization * meter_limit,
-        "one_dim_utilization": one_dim_scheme(block_txs, meter_limit),
+        "gas_used": one_dim_utilization * meter_limit,
+        "one_dim_utilization": one_dim_utilization,
         "throughput": len(block_txs),
         "mempool_size": mempool.txs_count(),
     }
