@@ -84,6 +84,12 @@ def parse_configuration():
             "Used to speed up run time. (default: 10)"
         ),
     )
+    parser.add_argument(
+        "--thread_pool_size",
+        type=int,
+        default=8,
+        help="Number of threads to use for processing transactions (default: 8)",
+    )
     args = parser.parse_args()
     config = {
         "data_dir": args.data_dir,
@@ -91,6 +97,7 @@ def parse_configuration():
         "n_blocks": args.n_blocks,
         "n_iter": args.n_iter,
         "tx_batch_size": args.tx_batch_size,
+        "thread_pool_size": args.thread_pool_size,
     }
     # Load secrets form file, if it exists
     if os.path.isfile(args.secrets_path):
@@ -192,6 +199,7 @@ def main():
                 demand_mul,
                 block_time,
                 tx_batch_size,
+                config["thread_pool_size"],
             )
             iter_sim_df["demand_type"] = demand_type
             iter_sim_df["demand_mul"] = demand_mul
