@@ -69,7 +69,7 @@ class HistoricalSimMempool:
             self._group_historical_txs_by_slot()
         if demand_type == "parametric":
             average = self.demand_base_kernel.resample(size=10000).mean()
-            self.demand_adj = average * (1 - demand_mul)
+            self.demand_adj = average * (demand_mul - 1)
 
     def get_next_tx(self) -> Union[SimTx, None]:
         if self.demand_type == "infinite":
