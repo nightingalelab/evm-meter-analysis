@@ -50,6 +50,7 @@ class HistoricalSimMempool:
         self.demand_type = demand_type
         self.demand_base_kernel = demand_base_kernel
         self.demand_mul = demand_mul
+        self.demand_adj = None
         self.block_time = block_time
         self.refresh_times = 0
         if (demand_type == "parametric") & (demand_mul is None):
@@ -66,6 +67,9 @@ class HistoricalSimMempool:
             )
         if demand_type == "historical":
             self._group_historical_txs_by_slot()
+        if demand_type == "parametric":
+            average = self.demand_base_kernel.resample(size=10000).mean()
+            self.demand_adj = average * (1 - demand_mul)
 
     def get_next_tx(self) -> Union[SimTx, None]:
         if self.demand_type == "infinite":
@@ -104,8 +108,8 @@ class HistoricalSimMempool:
                 self.mempool_txs + new_txs, key=lambda tx: tx.tx_fee, reverse=True
             )
         else:  # "parametric"
-            tx_sample_size = (
-                int(self.demand_base_kernel.resample(size=1)[0][0]) * self.demand_mul
+            tx_sample_size = int(
+                self.demand_base_kernel.resample(size=1)[0][0] + self.demand_adj
             )
             new_txs = random.choices(self.historical_txs, k=tx_sample_size)
             self.mempool_txs = sorted(
