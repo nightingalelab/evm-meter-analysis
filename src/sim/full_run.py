@@ -171,6 +171,7 @@ def main():
         {"demand_type": "parametric", "demand_mul": 1},
         {"demand_type": "parametric", "demand_mul": 2},
         {"demand_type": "parametric", "demand_mul": 3},
+        {"demand_type": "parametric", "demand_mul": 5},
     ]
     block_time = 12
     for demand_dict in demand_dict_list:
